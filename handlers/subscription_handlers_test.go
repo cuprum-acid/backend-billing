@@ -18,8 +18,8 @@ func TestCreateSubscription_Validation(t *testing.T) {
 		expectedCode   string
 	}{
 		{
-			name: "empty body",
-			body: map[string]string{},
+			name:           "empty body",
+			body:           map[string]string{},
 			expectedStatus: http.StatusBadRequest,
 			expectedCode:   apierrors.ErrValidation,
 		},
@@ -60,7 +60,7 @@ func TestCreateSubscription_Validation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			bodyBytes, _ := json.Marshal(tt.body)
 			req := httptest.NewRequest(http.MethodPost, "/subscriptions", bytes.NewReader(bodyBytes))
 			w := httptest.NewRecorder()

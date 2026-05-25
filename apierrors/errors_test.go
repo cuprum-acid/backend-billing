@@ -193,7 +193,7 @@ func TestAPIError_WithDetails(t *testing.T) {
 
 	data, _ := json.Marshal(err)
 	var result map[string]interface{}
-	json.Unmarshal(data, &result)
+	_ = json.Unmarshal(data, &result)
 
 	// Details should be present
 	if result["details"] != "connection refused" {
@@ -210,7 +210,7 @@ func TestAPIError_WithoutDetails(t *testing.T) {
 
 	data, _ := json.Marshal(err)
 	var result map[string]interface{}
-	json.Unmarshal(data, &result)
+	_ = json.Unmarshal(data, &result)
 
 	// Details should be omitted when empty
 	_, exists := result["details"]

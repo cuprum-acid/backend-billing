@@ -71,6 +71,11 @@ jobs:
         env:
           TESTCONTAINERS_RYUK_DISABLED: "false"
 
+      - name: Run E2E tests
+        run: go test -v ./tests/e2e/... -timeout 15m -e2e
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "false"
+
       - name: Generate coverage report
         run: go tool cover -html=coverage.out -o coverage.html
 

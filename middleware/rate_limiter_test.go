@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -54,7 +55,7 @@ func TestMiddleware_Allow(t *testing.T) {
 	rl := NewRateLimiter(100, 50) // High rate for testing
 
 	handlerCalled := false
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled = true
 		w.WriteHeader(http.StatusOK)
 	})
@@ -79,7 +80,7 @@ func TestMiddleware_Allow(t *testing.T) {
 func TestMiddleware_RateLimit(t *testing.T) {
 	rl := NewRateLimiter(1, 2) // 1 req/sec, burst of 2
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -190,7 +191,7 @@ func TestRateLimiter_Concurrency(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			ip := "192.168.1." + string(rune(id))
+			ip := fmt.Sprintf("192.168.1.%d", id)
 			for j := 0; j < requestsPerGoroutine; j++ {
 				limiter := rl.getLimiter(ip)
 				if limiter == nil {
@@ -215,7 +216,7 @@ func TestRateLimiter_Concurrency(t *testing.T) {
 func TestMiddleware_DifferentIPs(t *testing.T) {
 	rl := NewRateLimiter(1, 1) // Very restrictive for testing
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
