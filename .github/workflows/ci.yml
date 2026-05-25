@@ -72,9 +72,10 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "false"
 
       - name: Run E2E tests
-        run: go test -v ./tests/e2e/... -timeout 15m -e2e
+        run: go test -v ./tests/e2e/... -timeout 15m -run TestE2E
         env:
-          TESTCONTAINERS_RYUK_DISABLED: "false"
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+          TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: "/var/run/docker.sock"
 
       - name: Generate coverage report
         run: go tool cover -html=coverage.out -o coverage.html

@@ -39,11 +39,6 @@ func (s *Suite) SetupSuite() {
 		s.T().Skip("Skipping E2E tests in short mode")
 	}
 
-	// Check if E2E flag is set
-	if !isE2EEnabled() {
-		s.T().Skip("E2E tests disabled. Run with -e2e flag")
-	}
-
 	// Start PostgreSQL container
 	s.startPostgreSQL()
 
