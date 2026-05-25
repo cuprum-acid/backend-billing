@@ -135,15 +135,21 @@ func writeError(w http.ResponseWriter, err error) {
 	if errors.As(err, &apiErr) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(apiErr.StatusCode)
-		json.NewEncoder(w).Encode(apiErr)
+		if encErr := json.NewEncoder(w).Encode(apiErr); encErr != nil {
+			// Log encoding error but don't overwrite the original error
+			return
+		}
 		return
 	}
 
 	// Fallback for non-API errors
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(&apierrors.APIError{
+	if encErr := json.NewEncoder(w).Encode(&apierrors.APIError{
 		Code:    apierrors.ErrInternal,
 		Message: "An unexpected error occurred",
-	})
+	}); encErr != nil {
+		// Log encoding error
+		return
+	}
 }

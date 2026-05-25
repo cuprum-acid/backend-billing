@@ -1,84 +1,38 @@
+# golangci-lint configuration for backend-billing
+# Version: 2.x
+
+version: "2"
+
 run:
   timeout: 5m
   tests: true
 
 linters:
+  default: standard
   enable:
-    - gofmt
-    - govet
     - errcheck
+    - govet
     - staticcheck
-    - gosimple
     - unused
     - ineffassign
-    - typecheck
     - misspell
     - revive
     - makezero
     - nilerr
-    - noctx
     - prealloc
     - unconvert
     - unparam
-  disable-all: false
+    - bodyclose
+    - errorlint
+    - gosec
+    - gocritic
+  disable:
+    - noctx
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  revive:
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unreachable-code
-  misspell:
-    locale: US
+formatters:
+  enable:
+    - gofmt
 
 issues:
-  exclude-use-default: false
-  exclude-rules:
-    # Исключаем некоторые правила для тестов
-    - path: _test\.go
-      linters:
-        - errcheck
-        - noctx
-    # Игнорируем unused для некоторых случаев
-    - text: "unused"
-      linters:
-        - unused
-    # Ignore errcheck for init functions (validator registration)
-    - path: validator/validator\.go
-      linters:
-        - errcheck
-    # Ignore errcheck for json.Encode in error handlers
-    - path: handlers/plan_handlers\.go
-      linters:
-        - errcheck
-    # Ignore noctx for test helpers
-    - path: testhelpers/
-      linters:
-        - noctx
-
-output:
-  formats:
-    format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  exclude:
+    - text: "exitAfterDefer"

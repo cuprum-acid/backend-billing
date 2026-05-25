@@ -57,7 +57,7 @@ func TestReadyCheck(t *testing.T) {
 	}{
 		{
 			name: "database is available",
-			mockSetup: func(mock *mocks.MockDBTX) {
+			mockSetup: func(_ *mocks.MockDBTX) {
 				// Mock will be tested through integration tests
 			},
 			expectedStatus: http.StatusOK,

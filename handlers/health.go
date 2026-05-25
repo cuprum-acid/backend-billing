@@ -15,7 +15,7 @@ type HealthResponse struct {
 }
 
 // HealthCheck returns basic health status.
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
+func HealthCheck(w http.ResponseWriter, _ *http.Request) {
 	response := HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -30,7 +30,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReadyCheck checks if the service is ready to accept traffic.
-func ReadyCheck(w http.ResponseWriter, r *http.Request) {
+func ReadyCheck(w http.ResponseWriter, _ *http.Request) {
 	response := HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now().Format(time.RFC3339),

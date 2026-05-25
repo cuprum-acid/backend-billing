@@ -93,11 +93,13 @@ func main() {
 
 	// Graceful shutdown with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		cancel()
+		log.Printf("Server forced to shutdown: %v", err)
+		os.Exit(1) //nolint:gocritic // graceful shutdown failure requires immediate exit
 	}
+	cancel()
 
 	log.Println("Server exited gracefully")
 }
