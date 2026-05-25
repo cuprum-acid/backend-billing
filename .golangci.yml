@@ -32,7 +32,3 @@ linters:
 formatters:
   enable:
     - gofmt
-
-issues:
-  exclude:
-    - text: "exitAfterDefer"
