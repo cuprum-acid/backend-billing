@@ -1,3 +1,4 @@
+// Package handlers provides HTTP handlers for the billing API.
 package handlers
 
 import (
@@ -8,14 +9,19 @@ import (
 	"backend-billing/models"
 )
 
+// GetPlans returns all billing plans.
 func GetPlans(w http.ResponseWriter, r *http.Request) {
 	var plans []models.BillingPlan
 	db.Conn.WithContext(r.Context()).Find(&plans)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(plans)
+	if err := json.NewEncoder(w).Encode(plans); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
+// CreatePlan creates a new billing plan.
 func CreatePlan(w http.ResponseWriter, r *http.Request) {
 	var plan models.BillingPlan
 	if err := json.NewDecoder(r.Body).Decode(&plan); err != nil {
@@ -30,5 +36,8 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(plan)
+	if err := json.NewEncoder(w).Encode(plan); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

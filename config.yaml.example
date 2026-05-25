@@ -1,0 +1,20 @@
+# Backend Billing Configuration
+# Copy this file to config.yaml and customize as needed
+
+server:
+  port: "8080"
+  readTimeout: 15s
+  writeTimeout: 15s
+  idleTimeout: 60s
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: billing
+  sslmode: disable
+
+tracing:
+  endpoint: jaeger:4318
+  service: billing-api

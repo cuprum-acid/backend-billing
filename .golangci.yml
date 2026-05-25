@@ -1,0 +1,72 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - misspell
+    - revive
+    - makezero
+    - nilerr
+    - noctx
+    - prealloc
+    - unconvert
+    - unparam
+  disable-all: false
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unreachable-code
+  misspell:
+    locale: US
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    # Исключаем некоторые правила для тестов
+    - path: _test\.go
+      linters:
+        - errcheck
+        - noctx
+    # Игнорируем unused для некоторых случаев
+    - text: "unused"
+      linters:
+        - unused
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

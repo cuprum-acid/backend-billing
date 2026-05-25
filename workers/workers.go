@@ -1,3 +1,4 @@
+// Package workers provides background job processing for subscription management.
 package workers
 
 import (

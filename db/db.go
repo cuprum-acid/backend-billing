@@ -1,24 +1,24 @@
+// Package db provides database connection and initialization.
 package db
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/plugin/opentelemetry/tracing"
-	
+
+	"backend-billing/config"
 	"backend-billing/models"
 )
 
+// Conn is the global database connection instance.
 var Conn *gorm.DB
 
-func InitDB() {
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "host=localhost user=postgres password=password dbname=billing port=5432 sslmode=disable"
-	}
+// InitDB initializes the database connection and runs auto migrations.
+func InitDB(cfg *config.Config) {
+	dsn := cfg.GetDSN()
 
 	// Retry connection loop for docker-compose startup
 	var err error

@@ -1,3 +1,4 @@
+// Package main provides the entry point for the billing API server.
 package main
 
 import (
@@ -5,11 +6,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
+	"backend-billing/config"
 	"backend-billing/db"
 	"backend-billing/handlers"
 	"backend-billing/observability"
@@ -19,8 +24,14 @@ import (
 func main() {
 	observability.InitLogger()
 
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	ctx := context.Background()
-	tp, err := observability.InitTracer(ctx, "billing-api")
+	tp, err := observability.InitTracer(ctx, cfg.Tracing.Service)
 	if err != nil {
 		log.Fatalf("failed to init tracer: %v", err)
 	}
@@ -31,7 +42,7 @@ func main() {
 	}()
 
 	log.Println("Initializing database...")
-	db.InitDB()
+	db.InitDB(cfg)
 
 	// Start background worker to check expiration
 	log.Println("Starting background workers...")
@@ -43,6 +54,10 @@ func main() {
 	// Observability
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
+	// Health check endpoints
+	r.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
+	r.HandleFunc("/ready", handlers.ReadyCheck).Methods("GET")
+
 	// Billing Plan endpoints
 	r.HandleFunc("/plans", handlers.GetPlans).Methods("GET")
 	r.HandleFunc("/plans", handlers.CreatePlan).Methods("POST")
@@ -53,11 +68,36 @@ func main() {
 	r.HandleFunc("/subscriptions/{id:[0-9]+}", handlers.GetSubscription).Methods("GET")
 	r.HandleFunc("/subscriptions/{id:[0-9]+}/cancel", handlers.CancelSubscription).Methods("POST")
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	srv := &http.Server{
+		Addr:         ":" + cfg.Server.Port,
+		Handler:      r,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
-	log.Printf("Server started on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	// Start server in goroutine
+	go func() {
+		log.Printf("Server started on :%s", cfg.Server.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	// Graceful shutdown with timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited gracefully")
 }

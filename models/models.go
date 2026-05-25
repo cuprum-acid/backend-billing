@@ -1,3 +1,4 @@
+// Package models defines the data models for the billing system.
 package models
 
 import (

@@ -1,3 +1,4 @@
+// Package handlers provides HTTP handlers for the billing API.
 package handlers
 
 import (
@@ -19,24 +20,33 @@ var (
 		Name: "billing_subscriptions_created_total",
 		Help: "The total number of created subscriptions",
 	})
-	subsCancelledTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "billing_subscriptions_cancelled_total",
-		Help: "The total number of cancelled subscriptions",
+	subsCanceledTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "billing_subscriptions_canceled_total",
+		Help: "The total number of canceled subscriptions",
 	})
 )
 
+// GetSubscriptions returns all subscriptions.
 func GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 	var subs []models.Subscription
 	db.Conn.WithContext(r.Context()).Find(&subs)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(subs)
+	if err := json.NewEncoder(w).Encode(subs); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
+// GetSubscription returns a subscription by ID.
 func GetSubscription(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid subscription id", http.StatusBadRequest)
+		return
+	}
 
 	var sub models.Subscription
 	if err := db.Conn.WithContext(r.Context()).First(&sub, id).Error; err != nil {
@@ -45,9 +55,13 @@ func GetSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sub)
+	if err := json.NewEncoder(w).Encode(sub); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
+// CreateSubscription creates a new subscription.
 func CreateSubscription(w http.ResponseWriter, r *http.Request) {
 	var sub models.Subscription
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
@@ -72,13 +86,21 @@ func CreateSubscription(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(sub)
+	if err := json.NewEncoder(w).Encode(sub); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
+// CancelSubscription cancels an existing subscription.
 func CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid subscription id", http.StatusBadRequest)
+		return
+	}
 
 	var sub models.Subscription
 	if err := db.Conn.WithContext(r.Context()).First(&sub, id).Error; err != nil {
@@ -86,7 +108,7 @@ func CancelSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sub.State = "Cancelled"
+	sub.State = "Canceled"
 
 	if err := db.Conn.WithContext(r.Context()).Save(&sub).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -94,9 +116,12 @@ func CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Increment Prometheus counter
-	subsCancelledTotal.Inc()
+	subsCanceledTotal.Inc()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sub)
+	if err := json.NewEncoder(w).Encode(sub); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

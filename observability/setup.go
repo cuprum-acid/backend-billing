@@ -1,3 +1,4 @@
+// Package observability provides logging and tracing setup for the application.
 package observability
 
 import (
