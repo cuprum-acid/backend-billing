@@ -1,10 +1,11 @@
-.PHONY: build run test clean lint docker-build docker-up docker-down help
+.PHONY: build run test clean lint docker-build docker-up docker-down help generate-mocks
 
 # Variables
 BINARY_NAME=billing-api
 GO=go
 GOFMT=gofmt
 GOLANGCI_LINT=golangci-lint
+MOCKGEN=mockgen
 DOCKER=docker
 DOCKER_COMPOSE=docker-compose
 
@@ -76,6 +77,13 @@ docker-clean:
 install-deps:
 	@echo "Installing golangci-lint..."
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "Installing mockgen..."
+	go install go.uber.org/mock/mockgen@latest
+
+## generate-mocks: Generate mocks for testing
+generate-mocks:
+	@echo "Generating mocks..."
+	$(MOCKGEN) -source=repository/repository.go -destination=repository/mocks/mock_repository.go -package=mocks
 
 ## help: Show this help message
 help:
