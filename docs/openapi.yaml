@@ -1,0 +1,475 @@
+openapi: 3.0.3
+info:
+  title: Billing API
+  description: |
+    Traditional Go backend for billing system - Bachelor's thesis project.
+    
+    This API provides endpoints for managing billing plans and subscriptions.
+    
+    ## Architecture
+    - **Language**: Go 1.25
+    - **Framework**: Gorilla Mux
+    - **Database**: PostgreSQL 15
+    - **ORM**: GORM
+    
+    ## Features
+    - Billing plan management
+    - Subscription lifecycle (create, cancel, expire)
+    - Background worker for subscription expiration
+    - Observability (OpenTelemetry, Prometheus)
+    - Rate limiting (10 req/s, burst 20)
+  version: 1.0.0
+  contact:
+    name: Evgeny Bobkunov
+    email: jony.zh@yandex.ru
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Plans
+    description: Billing plan management
+  - name: Subscriptions
+    description: Subscription management
+  - name: Observability
+    description: Metrics and monitoring
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Basic health check
+      description: Returns basic health status of the service
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                timestamp: '2026-05-25T10:00:00+03:00'
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: Checks if the service is ready to accept traffic (includes DB check)
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is not ready (database unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: database_unavailable
+                timestamp: '2026-05-25T10:00:00+03:00'
+
+  /plans:
+    get:
+      tags:
+        - Plans
+      summary: List all billing plans
+      description: Returns a list of all available billing plans
+      operationId: listPlans
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BillingPlan'
+              examples:
+                default:
+                  value:
+                    - id: 1
+                      name: free
+                      price: '0.00'
+                      currency: USD
+                      billingPeriod: monthly
+                      createdAt: '2026-05-25T10:00:00+03:00'
+                      updatedAt: '2026-05-25T10:00:00+03:00'
+                    - id: 2
+                      name: pro
+                      price: '19.99'
+                      currency: USD
+                      billingPeriod: monthly
+                      createdAt: '2026-05-25T10:00:00+03:00'
+                      updatedAt: '2026-05-25T10:00:00+03:00'
+    post:
+      tags:
+        - Plans
+      summary: Create a new billing plan
+      description: Creates a new billing plan with the specified parameters
+      operationId: createPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+            examples:
+              pro_plan:
+                summary: Pro Plan Example
+                value:
+                  name: pro
+                  price: '19.99'
+                  currency: USD
+                  billingPeriod: monthly
+              enterprise_plan:
+                summary: Enterprise Plan Example
+                value:
+                  name: enterprise
+                  price: '99.99'
+                  currency: USD
+                  billingPeriod: yearly
+      responses:
+        '201':
+          description: Plan created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingPlan'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: Plan with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+
+  /subscriptions:
+    get:
+      tags:
+        - Subscriptions
+      summary: List all subscriptions
+      description: Returns a list of all subscriptions
+      operationId: listSubscriptions
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+    post:
+      tags:
+        - Subscriptions
+      summary: Create a new subscription
+      description: Creates a new subscription for a user
+      operationId: createSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+            examples:
+              default:
+                summary: Subscription Example
+                value:
+                  userId: user-123
+                  planRef: pro
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+
+  /subscriptions/{id}:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get subscription by ID
+      description: Returns details of a specific subscription
+      operationId: getSubscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Subscription ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+
+  /subscriptions/{id}/cancel:
+    post:
+      tags:
+        - Subscriptions
+      summary: Cancel a subscription
+      description: Cancels an existing subscription
+      operationId: cancelSubscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Subscription ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Subscription cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+
+  /metrics:
+    get:
+      tags:
+        - Observability
+      summary: Prometheus metrics
+      description: Returns Prometheus metrics for monitoring
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP billing_subscriptions_created_total The total number of created subscriptions
+                # TYPE billing_subscriptions_created_total counter
+                billing_subscriptions_created_total 5
+                # HELP billing_subscriptions_canceled_total The total number of canceled subscriptions
+                # TYPE billing_subscriptions_canceled_total counter
+                billing_subscriptions_canceled_total 2
+                # HELP http_rate_limit_requests_total Total number of requests tracked by rate limiter
+                # TYPE http_rate_limit_requests_total counter
+                http_rate_limit_requests_total{endpoint="/plans"} 100
+
+components:
+  schemas:
+    BillingPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: pro
+        price:
+          type: string
+          example: '19.99'
+        currency:
+          type: string
+          example: USD
+        billingPeriod:
+          type: string
+          enum: [monthly, yearly]
+          example: monthly
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - price
+        - currency
+        - billingPeriod
+
+    CreatePlanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: pro
+        price:
+          type: string
+          example: '19.99'
+        currency:
+          type: string
+          enum: [USD, EUR, RUB, GBP, KZT]
+          example: USD
+        billingPeriod:
+          type: string
+          enum: [monthly, yearly]
+          example: monthly
+      required:
+        - name
+        - price
+        - currency
+        - billingPeriod
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        userId:
+          type: string
+          example: user-123
+        planRef:
+          type: string
+          example: pro
+        state:
+          type: string
+          enum: [Active, Canceled, Expired]
+          example: Active
+        lastPayment:
+          type: string
+          format: date-time
+        nextBilling:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - planRef
+        - state
+
+    CreateSubscriptionRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: user-123
+        planRef:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: pro
+      required:
+        - userId
+        - planRef
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - status
+        - timestamp
+
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: NOT_FOUND
+        message:
+          type: string
+          example: Subscription not found
+        details:
+          type: string
+          example: record not found
+      required:
+        - code
+        - message
+
+    ValidationError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: validation failed
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            name: This field is required
+            price: Invalid price format
+      required:
+        - code
+        - message
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
