@@ -117,7 +117,7 @@ func TestSubscriptionsAPI(t *testing.T) {
 		// Create subscription with explicit timestamps
 		now := time.Now()
 		nextBilling := now.AddDate(0, 1, 0)
-		
+
 		sub := models.Subscription{
 			UserID:      "test-user-123",
 			PlanRef:     "test-basic",

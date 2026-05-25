@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,9 +11,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gorm.io/gorm"
 
+	"backend-billing/apierrors"
 	"backend-billing/db"
 	"backend-billing/models"
+	"backend-billing/validator"
 )
 
 var (
@@ -26,14 +30,23 @@ var (
 	})
 )
 
+// CreateSubscriptionRequest represents the request body for creating a subscription.
+type CreateSubscriptionRequest struct {
+	UserID  string `json:"userId" validate:"required,min=1,max=255"`
+	PlanRef string `json:"planRef" validate:"required,min=3,max=50"`
+}
+
 // GetSubscriptions returns all subscriptions.
 func GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 	var subs []models.Subscription
-	db.Conn.WithContext(r.Context()).Find(&subs)
+	if err := db.Conn.WithContext(r.Context()).Find(&subs).Error; err != nil {
+		writeError(w, apierrors.WrapError(err, "Failed to retrieve subscriptions"))
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(subs); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to encode response"))
 		return
 	}
 }
@@ -44,40 +57,77 @@ func GetSubscription(w http.ResponseWriter, r *http.Request) {
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid subscription id", http.StatusBadRequest)
+		writeError(w, apierrors.ErrInvalidIDFormat)
 		return
 	}
 
 	var sub models.Subscription
 	if err := db.Conn.WithContext(r.Context()).First(&sub, id).Error; err != nil {
-		http.Error(w, "subscription not found", http.StatusNotFound)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, apierrors.ErrSubscriptionNotFound)
+			return
+		}
+		writeError(w, apierrors.WrapError(err, "Failed to retrieve subscription"))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(sub); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to encode response"))
 		return
 	}
 }
 
 // CreateSubscription creates a new subscription.
 func CreateSubscription(w http.ResponseWriter, r *http.Request) {
-	var sub models.Subscription
-	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var req CreateSubscriptionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, &apierrors.APIError{
+			Code:       apierrors.ErrBadRequest,
+			Message:    "Invalid request body",
+			Details:    err.Error(),
+			StatusCode: http.StatusBadRequest,
+		})
 		return
 	}
 
-	// Simple business logic: set state and billing cycle
-	sub.State = "Active"
+	// Validate request
+	if err := validator.GetValidator().Struct(req); err != nil {
+		fieldErrors := make(map[string]string)
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			for _, ve := range validationErrors {
+				fieldErrors[ve.Field()] = getValidationMessage(ve)
+			}
+		}
+		writeError(w, apierrors.NewValidationErrors(fieldErrors))
+		return
+	}
+
+	// Verify plan exists
+	var plan models.BillingPlan
+	if err := db.Conn.WithContext(r.Context()).Where("name = ?", req.PlanRef).First(&plan).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, apierrors.ErrPlanNotFound)
+			return
+		}
+		writeError(w, apierrors.WrapError(err, "Failed to verify plan"))
+		return
+	}
+
+	// Create subscription with business logic
+	sub := models.Subscription{
+		UserID:  req.UserID,
+		PlanRef: req.PlanRef,
+		State:   "Active",
+	}
 	now := time.Now()
-	next := now.AddDate(0, 1, 0) // Assume monthly
+	next := now.AddDate(0, 1, 0) // Default to monthly billing
 	sub.LastPayment = &now
 	sub.NextBilling = &next
 
 	if err := db.Conn.WithContext(r.Context()).Create(&sub).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to create subscription"))
 		return
 	}
 
@@ -87,7 +137,7 @@ func CreateSubscription(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(sub); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to encode response"))
 		return
 	}
 }
@@ -98,20 +148,23 @@ func CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid subscription id", http.StatusBadRequest)
+		writeError(w, apierrors.ErrInvalidIDFormat)
 		return
 	}
 
 	var sub models.Subscription
 	if err := db.Conn.WithContext(r.Context()).First(&sub, id).Error; err != nil {
-		http.Error(w, "subscription not found", http.StatusNotFound)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, apierrors.ErrSubscriptionNotFound)
+			return
+		}
+		writeError(w, apierrors.WrapError(err, "Failed to retrieve subscription"))
 		return
 	}
 
 	sub.State = "Canceled"
-
 	if err := db.Conn.WithContext(r.Context()).Save(&sub).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to cancel subscription"))
 		return
 	}
 
@@ -119,9 +172,8 @@ func CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	subsCanceledTotal.Inc()
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(sub); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeError(w, apierrors.WrapError(err, "Failed to encode response"))
 		return
 	}
 }

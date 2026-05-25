@@ -64,6 +64,18 @@ issues:
     - text: "unused"
       linters:
         - unused
+    # Ignore errcheck for init functions (validator registration)
+    - path: validator/validator\.go
+      linters:
+        - errcheck
+    # Ignore errcheck for json.Encode in error handlers
+    - path: handlers/plan_handlers\.go
+      linters:
+        - errcheck
+    # Ignore noctx for test helpers
+    - path: testhelpers/
+      linters:
+        - noctx
 
 output:
   formats:
