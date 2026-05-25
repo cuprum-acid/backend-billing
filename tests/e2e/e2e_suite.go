@@ -64,15 +64,6 @@ func (s *Suite) TearDownSuite() {
 	}
 }
 
-func isE2EEnabled() bool {
-	for _, arg := range os.Args {
-		if arg == "-e2e" || arg == "--e2e" {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *Suite) startPostgreSQL() {
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:15",
