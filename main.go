@@ -17,6 +17,7 @@ import (
 	"backend-billing/config"
 	"backend-billing/db"
 	"backend-billing/handlers"
+	"backend-billing/middleware"
 	"backend-billing/observability"
 	"backend-billing/workers"
 )
@@ -50,6 +51,11 @@ func main() {
 
 	r := mux.NewRouter()
 	r.Use(otelmux.Middleware("billing-api"))
+
+	// Rate limiting: 10 requests per second, burst of 20
+	rateLimiter := middleware.NewRateLimiter(10, 20)
+	rateLimiter.Cleanup(1 * time.Minute)
+	r.Use(rateLimiter.Middleware)
 
 	// Observability
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
