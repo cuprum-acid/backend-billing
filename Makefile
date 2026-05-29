@@ -1,4 +1,4 @@
-.PHONY: build run test clean lint docker-build docker-up docker-down help generate-mocks
+.PHONY: build run test clean lint docker-build docker-up docker-down help generate-mocks bench bench-load
 
 # Variables
 BINARY_NAME=billing-api
@@ -34,6 +34,25 @@ test-coverage:
 	$(GO) test -v -race -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+## bench: Run microbenchmarks (no DB) and end-to-end load harness against a running server
+bench:
+	@echo "=== Microbenchmarks (in-process, no DB) ==="
+	$(GO) test -bench=. -benchmem -benchtime=2s -count=3 -run=^$$ ./handlers/
+	@echo
+	@echo "=== End-to-end load harness ==="
+	@echo "Requires backend running at http://localhost:8080 with a 'basic' plan."
+	@mkdir -p bench/results
+	@for op in create-plan create-subscription get-subscription cancel-subscription; do \
+		echo "-- op=$$op --"; \
+		$(GO) run ./bench -base http://localhost:8080 -n 1000 -c 50 -warmup 5s -op $$op -plan basic -out bench/results/$$op.csv || true; \
+	done
+
+## bench-load: Run only the load harness (handy when the server is already running)
+bench-load:
+	@mkdir -p bench/results
+	$(GO) run ./bench -base http://localhost:8080 -n 5000 -c 50 -warmup 60s \
+		-op create-subscription -plan basic -out bench/results/create-subscription.csv
 
 ## clean: Clean build artifacts
 clean:
