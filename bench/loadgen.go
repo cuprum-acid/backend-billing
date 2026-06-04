@@ -13,6 +13,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -25,6 +26,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type op struct {
@@ -42,6 +45,7 @@ func main() {
 	planRef := flag.String("plan", "basic", "plan name used for create-subscription")
 	out := flag.String("out", "", "optional path to write per-request CSV (start_ns,duration_ns,status)")
 	warmup := flag.Duration("warmup", 0, "discard requests issued during this initial window")
+	rps := flag.Float64("rps", 0, "client-side rate cap (req/s); 0 disables capping")
 	flag.Parse()
 
 	o, err := pickOp(*opName, *planRef)
@@ -50,6 +54,15 @@ func main() {
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
+
+	// Optional client-side rate limit. Useful when the server has its
+	// own rate limiter (the backend's token bucket is 10 req/s + burst
+	// 20); driving the bench just under that ceiling avoids the long
+	// tail of 429s drowning the success-path percentiles.
+	var limiter *rate.Limiter
+	if *rps > 0 {
+		limiter = rate.NewLimiter(rate.Limit(*rps), 1)
+	}
 
 	type sample struct {
 		startNs  int64
@@ -74,6 +87,12 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
+				if limiter != nil {
+					if err := limiter.Wait(context.Background()); err != nil {
+						atomic.AddInt64(&errCount, 1)
+						continue
+					}
+				}
 				body := o.body(j.i)
 				req, err := http.NewRequest(o.method, *base+o.path(j.i), bytes.NewReader(body))
 				if err != nil {
