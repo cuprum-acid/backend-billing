@@ -158,7 +158,7 @@ func pickOp(name, plan string) (op, error) {
 	case "create-plan":
 		return op{
 			name: name, method: "POST",
-			path: func(i int) string { return "/plans" },
+			path: func(_ int) string { return "/plans" },
 			body: func(i int) []byte {
 				b, _ := json.Marshal(map[string]string{
 					"name":          fmt.Sprintf("bench-plan-%d", i),
@@ -172,7 +172,7 @@ func pickOp(name, plan string) (op, error) {
 	case "create-subscription":
 		return op{
 			name: name, method: "POST",
-			path: func(i int) string { return "/subscriptions" },
+			path: func(_ int) string { return "/subscriptions" },
 			body: func(i int) []byte {
 				b, _ := json.Marshal(map[string]string{
 					"userId":  fmt.Sprintf("bench-user-%d", i),
@@ -184,14 +184,14 @@ func pickOp(name, plan string) (op, error) {
 	case "get-subscription":
 		return op{
 			name: name, method: "GET",
-			path: func(i int) string { return "/subscriptions/1" },
-			body: func(i int) []byte { return nil },
+			path: func(_ int) string { return "/subscriptions/1" },
+			body: func(_ int) []byte { return nil },
 		}, nil
 	case "cancel-subscription":
 		return op{
 			name: name, method: "POST",
 			path: func(i int) string { return fmt.Sprintf("/subscriptions/%d/cancel", i+1) },
-			body: func(i int) []byte { return nil },
+			body: func(_ int) []byte { return nil },
 		}, nil
 	default:
 		return op{}, fmt.Errorf("unknown op: %s", name)
