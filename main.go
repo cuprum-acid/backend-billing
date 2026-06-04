@@ -64,6 +64,11 @@ func main() {
 	// Observability
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
+	// API documentation: Swagger UI shell + embedded OpenAPI 3.0 spec.
+	r.HandleFunc("/swagger", handlers.SwaggerUI).Methods("GET")
+	r.HandleFunc("/swagger/", handlers.SwaggerUI).Methods("GET")
+	r.HandleFunc("/openapi.yaml", handlers.OpenAPISpec).Methods("GET")
+
 	// Health check endpoints
 	r.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
 	r.HandleFunc("/ready", handlers.ReadyCheck).Methods("GET")

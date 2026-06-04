@@ -1,0 +1,33 @@
+# Observability overlay for the backend-billing docker-compose stack.
+#
+# Brings up Grafana, wired to the existing Prometheus service via a
+# provisioned datasource and a pre-loaded billing dashboard. Run with:
+#
+#   docker-compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.observability.yml \
+#     up
+#
+# Grafana is reachable at http://localhost:3000 (admin / admin by
+# default). The "billing" dashboard appears under the "Billing" folder
+# in the dashboards UI.
+
+services:
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana_data:

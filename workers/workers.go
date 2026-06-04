@@ -3,7 +3,7 @@ package workers
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"backend-billing/db"
@@ -12,7 +12,8 @@ import (
 
 // StartSubscriptionChecker runs in the background and periodically
 // checks for subscriptions that have passed their NextBilling date
-// and marks them as Expired.
+// and marks them as Expired. All log lines are emitted through slog
+// so they share the JSON handler installed by observability.InitLogger.
 func StartSubscriptionChecker() {
 	go func() {
 		// Run check every 1 minute (for demonstration purposes, typically daily or hourly)
@@ -21,7 +22,8 @@ func StartSubscriptionChecker() {
 
 		for {
 			<-ticker.C
-			log.Println("[Worker] Checking for expired subscriptions...")
+			slog.Info("worker tick: checking for expired subscriptions",
+				slog.String("component", "subscription_checker"))
 			checkExpiredSubscriptions()
 		}
 	}()
@@ -32,18 +34,28 @@ func checkExpiredSubscriptions() {
 
 	ctx := context.Background()
 	var expiredSubs []models.Subscription
-	if err := db.Conn.WithContext(ctx).Where("state = ? AND next_billing < ?", "Active", now).Find(&expiredSubs).Error; err != nil {
-		log.Printf("[Worker] Failed to query expired subscriptions: %v", err)
+	if err := db.Conn.WithContext(ctx).
+		Where("state = ? AND next_billing < ?", "Active", now).
+		Find(&expiredSubs).Error; err != nil {
+		slog.Error("worker query failed",
+			slog.String("component", "subscription_checker"),
+			slog.Any("error", err))
 		return
 	}
 
 	for _, sub := range expiredSubs {
-		log.Printf("[Worker] Subscription ID %d for User %s has expired.", sub.ID, sub.UserID)
 		sub.State = "Expired"
 		if err := db.Conn.WithContext(ctx).Save(&sub).Error; err != nil {
-			log.Printf("[Worker] Failed to update subscription %d to expired: %v", sub.ID, err)
-		} else {
-			log.Printf("[Worker] Successfully marked subscription %d as Expired", sub.ID)
+			slog.Error("worker failed to mark subscription expired",
+				slog.String("component", "subscription_checker"),
+				slog.Uint64("subscription_id", uint64(sub.ID)),
+				slog.String("user_id", sub.UserID),
+				slog.Any("error", err))
+			continue
 		}
+		slog.Info("worker marked subscription expired",
+			slog.String("component", "subscription_checker"),
+			slog.Uint64("subscription_id", uint64(sub.ID)),
+			slog.String("user_id", sub.UserID))
 	}
 }
