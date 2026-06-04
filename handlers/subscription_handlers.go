@@ -31,9 +31,13 @@ var (
 )
 
 // CreateSubscriptionRequest represents the request body for creating a subscription.
+//
+// The user_id and plan_ref validators enforce the same patterns the
+// kube-billing CRD applies at admission time, so both implementations
+// reject the same set of bad inputs.
 type CreateSubscriptionRequest struct {
-	UserID  string `json:"userId" validate:"required,min=1,max=255"`
-	PlanRef string `json:"planRef" validate:"required,min=3,max=50"`
+	UserID  string `json:"userId"  validate:"required,min=1,max=256,user_id"`
+	PlanRef string `json:"planRef" validate:"required,min=1,max=253,plan_ref"`
 }
 
 // GetSubscriptions returns all subscriptions.

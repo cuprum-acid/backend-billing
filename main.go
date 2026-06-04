@@ -52,6 +52,10 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(otelmux.Middleware("billing-api"))
 
+	// Panic recovery: turn a panic into a 500 response so a single
+	// broken handler doesn't kill the whole process.
+	r.Use(middleware.Recovery)
+
 	// Rate limiting: 10 requests per second, burst of 20
 	rateLimiter := middleware.NewRateLimiter(10, 20)
 	rateLimiter.Cleanup(1 * time.Minute)

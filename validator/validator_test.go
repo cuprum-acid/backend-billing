@@ -28,6 +28,56 @@ func TestGetValidator(t *testing.T) {
 	}
 }
 
+func TestValidatePrice(t *testing.T) {
+	type priceStruct struct {
+		Price string `validate:"price"`
+	}
+
+	cases := []struct {
+		value string
+		want  bool
+	}{
+		{"0", true},
+		{"19", true},
+		{"19.9", true},
+		{"19.99", true},
+		{"0.05", true},
+		{"", false},
+		{"banana", false},
+		{".99", false},
+		{"-1.00", false},
+		{"19.999", false},
+		{"19,99", false},
+	}
+
+	v := GetValidator()
+	for _, tc := range cases {
+		err := v.Struct(priceStruct{Price: tc.value})
+		got := err == nil
+		if got != tc.want {
+			t.Errorf("validatePrice(%q): got accepted=%v, want %v (err=%v)", tc.value, got, tc.want, err)
+		}
+	}
+}
+
+func TestValidateBillingPeriod(t *testing.T) {
+	type periodStruct struct {
+		Period string `validate:"billing_period"`
+	}
+
+	v := GetValidator()
+	for _, valid := range []string{"monthly", "yearly"} {
+		if err := v.Struct(periodStruct{Period: valid}); err != nil {
+			t.Errorf("validateBillingPeriod(%q) rejected unexpectedly: %v", valid, err)
+		}
+	}
+	for _, invalid := range []string{"", "weekly", "Monthly", "MONTHLY"} {
+		if err := v.Struct(periodStruct{Period: invalid}); err == nil {
+			t.Errorf("validateBillingPeriod(%q) accepted unexpectedly", invalid)
+		}
+	}
+}
+
 func TestValidationErrors(t *testing.T) {
 	type TestStruct struct {
 		Name     string `validate:"required,min=3"`
