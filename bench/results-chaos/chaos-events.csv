@@ -1,0 +1,13 @@
+t_ms,event
+5,experiment_start
+15,batch_start_p1_n30_c5
+240,batch_end_p1
+5260,api_kill_requested
+5551,api_killed
+5567,batch_start_p2_n30_c5
+5794,batch_end_p2
+17813,api_restart_requested
+18616,api_ready
+18631,batch_start_p3_n30_c5
+18865,batch_end_p3
+23886,experiment_end
