@@ -1,0 +1,7 @@
+epoch_s,event
+1781192707,idle_start
+1781192827,idle_end
+1781192827,steady_start
+1781193008,steady_end
+1781193008,saturated_start
+1781193046,saturated_end
