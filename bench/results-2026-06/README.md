@@ -3,7 +3,7 @@
 Raw per-request CSVs from the loadgen harness, captured on the
 reference Apple M3 host (8 GB unified memory, macOS 15.7.7) against
 the docker-compose stack (PostgreSQL 15 + Jaeger 1.50 + Prometheus
-2.45) at backend-billing commit `33d5304`.
+2.45) at backend-billing commit `76da1dc` (the commit that introduces the `-rps` client-side rate cap and these CSVs; an earlier revision of this README referenced the pre-rebase SHA `33d5304`).
 
 CSV schema: `start_ns,duration_ns,status` (one row per request, post-warmup).
 
