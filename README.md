@@ -1,219 +1,103 @@
-# backend-billing
+# Backend Billing
 
-Traditional Go backend for billing system — Bachelor's thesis project.
+A Go-based billing system for managing subscription plans and customer subscriptions.
 
-This provides the exact same high-level models as the `kube-billing` Kubernetes CRDs but built as a traditional Go web application with a PostgreSQL database.
+## Features
 
-## 📚 Documentation
+- **Billing Plans**: Define subscription plans with pricing, currency, and billing periods
+- **Subscription Management**: Create, view, and cancel customer subscriptions
+- **Auto-Expiration**: Automatic detection and status update for expired subscriptions
+- **Rate Limiting**: Protection against abuse (10 requests/second per IP)
+- **Monitoring**: Prometheus metrics and distributed tracing support
 
-- **[API Documentation](docs/API.md)** — Full API reference with examples
-- **[OpenAPI Spec](docs/openapi.yaml)** — OpenAPI 3.0 specification
+## Quick Start
 
-## 🏗️ Architecture
-
-| Component | Technology |
-|-----------|------------|
-| **Language** | Go 1.25 |
-| **HTTP Framework** | Gorilla Mux |
-| **ORM** | GORM |
-| **Database** | PostgreSQL 15 |
-| **Observability** | OpenTelemetry + Prometheus |
-| **Rate Limiting** | Token bucket (golang.org/x/time/rate) |
-
-## 🚀 Quick Start
-
-### Using Docker Compose
+### Running with Docker Compose
 
 ```bash
-cd backend-billing
 docker-compose up --build
 ```
 
-This spins up:
-- **PostgreSQL**: `localhost:5432`
-- **API**: `http://localhost:8080`
-- **Jaeger UI**: `http://localhost:16686`
-- **Prometheus**: `http://localhost:9090`
+Services available at:
+- **API**: http://localhost:8080
+- **PostgreSQL**: http://localhost:5432
+- **Jaeger UI**: http://localhost:16686
+- **Prometheus**: http://localhost:9090
 
-### Local Development
+### Running Locally
 
 ```bash
-# Install dependencies
 go mod download
 
-# Run with PostgreSQL
 export DATABASE_URL="host=localhost user=postgres password=password dbname=billing port=5432 sslmode=disable"
+
 go run main.go
 ```
 
-## 📡 API Endpoints
+## Usage
 
-### Health Checks
+### Create a Billing Plan
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Basic health check |
-| GET | `/ready` | Readiness check (includes DB check) |
-
-### Billing Plans
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/plans` | List all plans |
-| POST | `/plans` | Create a new plan |
-
-**Example:**
 ```bash
 curl -X POST http://localhost:8080/plans \
   -H "Content-Type: application/json" \
-  -d '{"name": "pro", "price": "19.99", "currency": "USD", "billingPeriod": "monthly"}'
+  -d '{
+    "name": "pro",
+    "price": "19.99",
+    "currency": "USD",
+    "billingPeriod": "monthly"
+  }'
 ```
 
-### Subscriptions
+### Create a Subscription
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/subscriptions` | List all subscriptions |
-| GET | `/subscriptions/{id}` | Get subscription by ID |
-| POST | `/subscriptions` | Create a new subscription |
-| POST | `/subscriptions/{id}/cancel` | Cancel a subscription |
-
-**Example:**
 ```bash
 curl -X POST http://localhost:8080/subscriptions \
   -H "Content-Type: application/json" \
-  -d '{"userId": "user-123", "planRef": "pro"}'
+  -d '{
+    "userId": "user-123",
+    "planRef": "pro"
+  }'
 ```
 
-### Observability
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/metrics` | Prometheus metrics |
-
-## 🛠️ Development
-
-### Build
+### View Subscriptions
 
 ```bash
+# List all
+curl http://localhost:8080/subscriptions
+
+# Get by ID
+curl http://localhost:8080/subscriptions/1
+```
+
+### Cancel a Subscription
+
+```bash
+curl -X POST http://localhost:8080/subscriptions/1/cancel
+```
+
+## Development
+
+```bash
+# Build
 go build -o billing-api .
-```
 
-### Run Tests
-
-```bash
-# Unit + Integration tests
+# Run tests
 go test -v ./...
 
-# Integration tests only
-go test -v ./tests/integration/...
-```
-
-### Lint
-
-```bash
+# Lint
 golangci-lint run
 ```
 
-### Make Commands
+See `Makefile` for available commands.
 
-```bash
-make build          # Build binary
-make run            # Run locally
-make test           # Run tests
-make lint           # Run linter
-make docker-up      # Start Docker Compose
-make docker-down    # Stop Docker Compose
-make help           # Show all commands
-```
+## API Documentation
 
-## 🔒 Security
+Full documentation with OpenAPI spec:
 
-### Rate Limiting
+- **Swagger UI**: http://localhost:8080/swagger
+- **OpenAPI Spec**: http://localhost:8080/openapi.yaml
 
-- **Limit**: 10 requests/second
-- **Burst**: 20 requests
-- **Algorithm**: Token bucket (per-IP)
+## License
 
-### Input Validation
-
-- Plan name: 3-50 characters
-- Price: positive decimal string
-- Currency: USD, EUR, RUB, GBP, KZT
-- Billing period: monthly, yearly
-- User ID: 1-255 characters
-
-## 📊 Observability
-
-### Metrics
-
-- `billing_subscriptions_created_total` — Total created subscriptions
-- `billing_subscriptions_canceled_total` — Total canceled subscriptions
-- `http_rate_limit_requests_total` — Total requests tracked
-- `http_rate_limit_hits_total` — Rate limit hits
-
-### Tracing
-
-OpenTelemetry tracing is enabled for:
-- HTTP requests (via `otelmux` middleware)
-- Database queries (via GORM tracing plugin)
-
-Exported to Jaeger at `http://localhost:16686`.
-
-## 🧪 Testing
-
-### Integration Tests
-
-Tests use `testcontainers-go` to spin up isolated PostgreSQL containers:
-
-```bash
-go test -v ./tests/integration/... -timeout 10m
-```
-
-### Test Coverage
-
-```bash
-# Generate coverage report
-go test -v -race -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out -o coverage.html
-```
-
-## 📝 Project Structure
-
-```
-backend-billing/
-├── main.go                     # Application entry point
-├── config/
-│   ├── config.go              # Viper-based configuration
-│   └── prometheus.yml         # Prometheus scrape config
-├── db/
-│   └── db.go                  # Database initialization
-├── handlers/
-│   ├── plan_handlers.go       # HTTP handlers for plans
-│   ├── subscription_handlers.go # HTTP handlers for subscriptions
-│   └── health.go              # Health check handlers
-├── middleware/
-│   └── rate_limiter.go        # Rate limiting middleware
-├── models/
-│   └── models.go              # GORM models
-├── observability/
-│   └── setup.go               # Logging and tracing setup
-├── workers/
-│   └── workers.go             # Background subscription checker
-├── repository/
-│   ├── repository.go          # Repository interfaces
-│   └── mocks/
-│       └── mock_repository.go # Generated mocks
-├── testhelpers/
-│   └── http_helpers.go        # Test utilities
-├── tests/
-│   └── integration/
-│       └── integration_test.go # Integration tests
-├── validator/
-│   └── validator.go           # Custom validation rules
-├── apierrors/
-│   └── errors.go              # Custom error types
-└── docs/
-    ├── API.md                 # API documentation
-    └── openapi.yaml           # OpenAPI 3.0 specification
-```
+MIT License
