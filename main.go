@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,8 @@ import (
 )
 
 func main() {
+	printBanner()
+
 	observability.InitLogger()
 
 	// Load configuration
@@ -117,4 +120,16 @@ func main() {
 	cancel()
 
 	log.Println("Server exited gracefully")
+}
+
+func printBanner() {
+	banner := `
+ _                _                  _       _     _ _ _ _
+| |__   __ _  ___| | _____ _ __   __| |     | |__ (_) | (_)_ __   __ _
+| '_ \ / _` + "`" + ` |/ __| |/ / _ \ '_ \ / _` + "`" + ` |_____| '_ \| | | | | '_ \ / _` + "`" + ` |
+| |_) | (_| | (__|   <  __/ | | | (_| |_____| |_) | | | | | | | | (_| |
+|_.__/ \__,_|\___|_|\_\___|_| |_|\__,_|     |_.__/|_|_|_|_|_| |_|\__, |
+                                                                 |___/
+`
+	fmt.Println(banner)
 }
